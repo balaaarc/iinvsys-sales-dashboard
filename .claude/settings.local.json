@@ -24,7 +24,20 @@
       "Bash(sudo npm:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(VERCEL=/tmp/vercel-local/node_modules/.bin/vercel)",
+      "Bash($VERCEL --version)",
+      "Bash($VERCEL login:*)",
+      "Bash($VERCEL --prod --yes)",
+      "Bash($VERCEL --prod --yes --name iinvsys-sales)",
+      "Bash(curl -s https://iinvsys-sales.vercel.app/api/health)",
+      "Bash(curl -sv https://iinvsys-sales.vercel.app/api/health)",
+      "Bash(VERCEL=/tmp/vercel-local/node_modules/.bin/vercel echo \"mongodb+srv://iinvsys:lNWQHeHAvk95Ufti@cluster0.xxxxx.mongodb.net/iinvsys?retryWrites=true&w=majority\")",
+      "Bash($VERCEL env:*)",
+      "Bash(VERCEL=/tmp/vercel-local/node_modules/.bin/vercel $VERCEL --prod --yes)",
+      "Bash(VERCEL=/tmp/vercel-local/node_modules/.bin/vercel $VERCEL logs https://iinvsys-sales.vercel.app --since 5m)",
+      "Bash(VERCEL=/tmp/vercel-local/node_modules/.bin/vercel $VERCEL logs https://iinvsys-sales.vercel.app)",
+      "Bash($VERCEL inspect:*)"
     ]
   }
 }
