@@ -2123,3 +2123,75 @@ textarea.form-input {
 .expo-card-actions .neo-btn.outline { color: var(--text-2); }
 .expo-card-actions .neo-btn.outline:hover { color: var(--text-1); }
 
+/* ══════════════════════════════════
+   v2.0 SHADOW & CONTRAST FIX
+   Root cause: CSS animation/transform creates a stacking context,
+   so ::after (z-index:-1) paints ON TOP of the element background
+   rather than behind it — producing solid coloured card surfaces
+   and invisible text. Fix: remove ::after shadows from all animated
+   or hover-transformed components and use box-shadow instead.
+══════════════════════════════════ */
+
+/* ── Kill all offending ::after pseudo-shadows ── */
+.kpi-card::after,
+.lead-card::after,
+.agent-card::after,
+.neo-btn::after { content: none !important; }
+
+/* ── KPI Cards: proper NeoPop box-shadow ── */
+.kpi-card:hover { transform: translate(-2px, -2px); }
+
+.kpi-card.yellow { box-shadow: 4px 4px 0 var(--gold); }
+.kpi-card.yellow:hover { box-shadow: 6px 6px 0 var(--gold); }
+.kpi-card.green  { box-shadow: 4px 4px 0 var(--emerald); }
+.kpi-card.green:hover  { box-shadow: 6px 6px 0 var(--emerald); }
+.kpi-card.blue   { box-shadow: 4px 4px 0 var(--azure); }
+.kpi-card.blue:hover   { box-shadow: 6px 6px 0 var(--azure); }
+.kpi-card.orange { box-shadow: 4px 4px 0 var(--amber); }
+.kpi-card.orange:hover { box-shadow: 6px 6px 0 var(--amber); }
+.kpi-card.purple { box-shadow: 4px 4px 0 var(--violet); }
+.kpi-card.purple:hover { box-shadow: 6px 6px 0 var(--violet); }
+.kpi-card.red    { box-shadow: 4px 4px 0 var(--coral); }
+.kpi-card.red:hover    { box-shadow: 6px 6px 0 var(--coral); }
+
+/* Ensure KPI text stays on dark surface — no more coloured background */
+.kpi-label { color: var(--text-3) !important; }
+.kpi-value { color: var(--text-1) !important; }
+.kpi-sub   { color: var(--text-3) !important; }
+.kpi-card:hover .kpi-label,
+.kpi-card:hover .kpi-sub   { color: var(--text-2) !important; }
+
+/* ── Lead Cards: box-shadow on hover, no coloured overlay ── */
+.lead-card:hover { transform: translate(-2px, -2px); box-shadow: none; }
+.lead-card.gold-border:hover  { box-shadow: 3px 3px 0 var(--gold); }
+.lead-card.amber-border:hover { box-shadow: 3px 3px 0 var(--amber); }
+.lead-card.blue-border:hover  { box-shadow: 3px 3px 0 var(--azure); }
+.lead-card.green-border:hover { box-shadow: 3px 3px 0 var(--emerald); }
+.lead-card.red-border:hover   { box-shadow: 3px 3px 0 var(--coral); }
+
+/* Lead card text stays legible on hover */
+.lead-card:hover .lead-name   { color: var(--text-1) !important; }
+.lead-card:hover .lead-detail { color: var(--text-2) !important; }
+.lead-card:hover .lead-time   { color: var(--text-2) !important; }
+
+/* ── Agent Cards: box-shadow replaces ::after ── */
+.agent-card { box-shadow: 3px 3px 0 var(--ac, var(--surface-3)); }
+.agent-card:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 5px 5px 0 var(--ac, var(--surface-3));
+}
+
+/* Agent card text legibility on hover */
+.agent-card:hover .agent-full-name  { color: var(--text-1) !important; }
+.agent-card:hover .agent-designation { color: var(--text-2) !important; }
+
+/* ── Neo Buttons: ::after removed, box-shadow already correct ── */
+.neo-btn.outline:hover {
+  border-color: var(--text-2);
+  box-shadow: 4px 4px 0 var(--text-2);
+  color: var(--text-1);
+}
+
+/* ── Filter selects: readable option text ── */
+.filter-select option { background: var(--surface-2); color: var(--text-1); }
+
