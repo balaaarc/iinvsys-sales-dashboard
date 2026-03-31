@@ -124,12 +124,52 @@ function daysSince(dateStr) {
   return Math.floor((Date.now() - new Date(dateStr)) / 86400000);
 }
 
+/* ═══════════ LOADER HELPERS ═══════════ */
+function showLoader(msg = 'Loading…') {
+  const el  = document.getElementById('globalLoader');
+  const txt = document.getElementById('loaderMsg');
+  if (txt) txt.textContent = msg.toUpperCase();
+  el?.classList.remove('hidden');
+}
+function hideLoader() {
+  document.getElementById('globalLoader')?.classList.add('hidden');
+}
+function showRefresh() {
+  document.getElementById('refreshBar')?.classList.remove('hidden');
+}
+function hideRefresh() {
+  document.getElementById('refreshBar')?.classList.add('hidden');
+}
+/** Set a button into loading/idle state. */
+function btnLoad(btn, loading, loadLabel) {
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.dataset.loading = loading ? 'true' : 'false';
+  if (loading) {
+    btn.dataset.origText = btn.textContent;
+    if (loadLabel) btn.textContent = loadLabel;
+  } else if (btn.dataset.origText !== undefined) {
+    btn.textContent = btn.dataset.origText;
+    delete btn.dataset.origText;
+  }
+}
+/** Returns HTML for an inline content spinner. */
+function contentSpinner(msg = 'Loading…') {
+  return `<div class="content-spinner">
+    <div class="content-spinner-ring"></div>
+    <div class="content-spinner-text">${msg.toUpperCase()}</div>
+  </div>`;
+}
+
 /* ═══════════ AUTH ═══════════ */
 document.getElementById('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-  const pass  = document.getElementById('loginPassword').value;
-  const errEl = document.getElementById('loginError');
+  const email   = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass    = document.getElementById('loginPassword').value;
+  const errEl   = document.getElementById('loginError');
+  const signBtn = e.target.querySelector('[type=submit]');
+  btnLoad(signBtn, true, 'Signing in…');
+  showLoader('Signing in…');
   try {
     const res = await api('POST', '/auth/login', { email, password: pass });
     _token = res.data.token;
@@ -139,6 +179,8 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
     document.getElementById('app').classList.remove('hidden');
     await initApp();
   } catch (err) {
+    hideLoader();
+    btnLoad(signBtn, false);
     errEl.classList.remove('hidden');
     setTimeout(() => errEl.classList.add('hidden'), 3000);
   }
@@ -174,17 +216,22 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 });
 
 /* ═══════════ DATA LOADING ═══════════ */
-async function loadAllData() {
-  const [agentsRes, productsRes, leadsRes, exposRes] = await Promise.all([
-    api('GET', '/agents'),
-    api('GET', '/products'),
-    api('GET', '/leads'),
-    api('GET', '/expos'),
-  ]);
-  S.agents   = agentsRes.data.map(normalizeAgent);
-  S.products = productsRes.data.map(normalizeProduct);
-  S.leads    = leadsRes.data.map(normalizeLead);
-  S.expos    = exposRes.data.map(e => normalizeExpo(e, S.leads));
+async function loadAllData(refresh = false) {
+  if (refresh) showRefresh();
+  try {
+    const [agentsRes, productsRes, leadsRes, exposRes] = await Promise.all([
+      api('GET', '/agents'),
+      api('GET', '/products'),
+      api('GET', '/leads'),
+      api('GET', '/expos'),
+    ]);
+    S.agents   = agentsRes.data.map(normalizeAgent);
+    S.products = productsRes.data.map(normalizeProduct);
+    S.leads    = leadsRes.data.map(normalizeLead);
+    S.expos    = exposRes.data.map(e => normalizeExpo(e, S.leads));
+  } finally {
+    if (refresh) hideRefresh();
+  }
 }
 
 async function loadReferrerData() {
@@ -197,6 +244,7 @@ async function loadReferrerData() {
 
 /* ═══════════ APP INIT ═══════════ */
 async function initApp() {
+  showLoader('Loading data…');
   try {
     if (isReferrer()) {
       await loadReferrerData();
@@ -204,6 +252,7 @@ async function initApp() {
       await loadAllData();
     }
   } catch (err) {
+    hideLoader();
     flash('Failed to load data. Check server connection.', 'error');
     return;
   }
@@ -223,6 +272,7 @@ async function initApp() {
     goToPage('myLeads');
   }
   updateNavCounts();
+  hideLoader();
 }
 
 function applyRole() {
@@ -731,7 +781,7 @@ document.getElementById('leadForm').addEventListener('submit', async e => {
   };
 
   const btn = document.getElementById('leadSubmitBtn');
-  btn.disabled = true;
+  btnLoad(btn, true, id ? 'Saving…' : 'Capturing…');
   try {
     if (id) {
       await api('PUT', `/leads/${id}`, payload);
@@ -740,7 +790,7 @@ document.getElementById('leadForm').addEventListener('submit', async e => {
       await api('POST', '/leads', payload);
       flash('Lead captured!');
     }
-    await loadAllData();
+    await loadAllData(true);
     updateNavCounts();
     document.getElementById('leadModal').classList.remove('open');
     renderKanban(getFilters());
@@ -749,7 +799,7 @@ document.getElementById('leadForm').addEventListener('submit', async e => {
   } catch (err) {
     flash(err.message || 'Failed to save lead', 'error');
   } finally {
-    btn.disabled = false;
+    btnLoad(btn, false);
   }
 });
 
@@ -770,14 +820,14 @@ function confirmDelete(type, id, cb) {
   okBtn.parentNode.replaceChild(newOk, okBtn);
 
   newOk.addEventListener('click', async () => {
-    newOk.disabled = true;
+    btnLoad(newOk, true, 'Deleting…');
     try {
       if (type === 'lead') {
         await api('DELETE', `/leads/${id}`);
       } else {
         await api('DELETE', `/products/${id}`);
       }
-      await loadAllData();
+      await loadAllData(true);
       updateNavCounts();
       modal.classList.remove('open');
       document.getElementById('leadModal').classList.remove('open');
@@ -787,7 +837,7 @@ function confirmDelete(type, id, cb) {
       flash(type === 'lead' ? 'Lead deleted' : 'Product deleted', 'warn');
     } catch (err) {
       flash(err.message || 'Delete failed', 'error');
-      newOk.disabled = false;
+      btnLoad(newOk, false);
     }
   });
 }
@@ -849,13 +899,17 @@ window.filterToAgent = function(agentId) {
 };
 
 window.toggleAgent = async function(agentId, newStatus) {
+  /* Find the clicked button by its onclick attribute context */
+  showRefresh();
   try {
     await api('PUT', `/agents/${agentId}`, { status: newStatus });
-    await loadAllData();
+    await loadAllData(true);
     renderAgentsGrid();
     flash(`Agent ${newStatus === 'active' ? 'reactivated' : 'deactivated'}`);
   } catch (err) {
     flash(err.message || 'Failed to update agent', 'error');
+  } finally {
+    hideRefresh();
   }
 };
 
@@ -956,7 +1010,7 @@ document.getElementById('productForm').addEventListener('submit', async e => {
   if (!name || !sku || !cat) { flash('Name, SKU, and Category are required', 'error'); return; }
   const payload = { name, sku, category: cat, price, description: desc };
   const btn = document.getElementById('productSubmitBtn');
-  btn.disabled = true;
+  btnLoad(btn, true, id ? 'Saving…' : 'Adding…');
   try {
     if (id) {
       await api('PUT', `/products/${id}`, payload);
@@ -965,7 +1019,7 @@ document.getElementById('productForm').addEventListener('submit', async e => {
       await api('POST', '/products', payload);
       flash('Product added');
     }
-    await loadAllData();
+    await loadAllData(true);
     updateNavCounts();
     document.getElementById('productModal').classList.remove('open');
     renderProductsTable();
@@ -979,7 +1033,7 @@ document.getElementById('productForm').addEventListener('submit', async e => {
   } catch (err) {
     flash(err.message || 'Failed to save product', 'error');
   } finally {
-    btn.disabled = false;
+    btnLoad(btn, false);
   }
 });
 
@@ -1195,10 +1249,10 @@ document.getElementById('confirmImportBtn')?.addEventListener('click', async () 
     };
   });
   const btn = document.getElementById('confirmImportBtn');
-  btn.disabled = true;
+  btnLoad(btn, true, 'Importing…');
   try {
     const res = await api('POST', '/leads/bulk-import', { leads });
-    await loadAllData();
+    await loadAllData(true);
     updateNavCounts();
     renderKanban(getFilters());
     if (document.getElementById('page-overview').classList.contains('active')) renderKPIs();
@@ -1212,7 +1266,7 @@ document.getElementById('confirmImportBtn')?.addEventListener('click', async () 
   } catch(err) {
     flash(err.message || 'Import failed', 'error');
   } finally {
-    btn.disabled = false;
+    btnLoad(btn, false);
   }
 });
 
@@ -1306,6 +1360,7 @@ function closeAllModals() {
 /* ═══════════ AUTO-LOGIN (session restore on page reload) ═══════════ */
 (async function tryAutoLogin() {
   if (!_token) return;
+  showLoader('Restoring session…');
   try {
     const res = await api('GET', '/auth/me');
     const u   = res.data.user || res.data;
@@ -1314,6 +1369,7 @@ function closeAllModals() {
     document.getElementById('app').classList.remove('hidden');
     await initApp();
   } catch (err) {
+    hideLoader();
     _token = null;
     localStorage.removeItem('ii_token');
   }
@@ -1323,7 +1379,7 @@ function closeAllModals() {
 async function renderSettings() {
   const wrap = document.getElementById('settingsGroups');
   if (!wrap) return;
-  wrap.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-3);padding:24px 0">Loading settings…</div>`;
+  wrap.innerHTML = contentSpinner('Loading settings…');
   try {
     const res = await api('GET', '/settings');
     const settings = res.data || [];
@@ -1376,21 +1432,20 @@ window.saveSetting = async function(key, btn) {
   const input = row.querySelector(`[data-key="${key}"]`);
   if (!input) return;
   let value = input.type === 'checkbox' ? input.checked : input.value;
-  // Convert comma-separated strings back to array if needed
   const originalType = input.dataset.type;
   if (typeof value === 'string' && value.includes(',') && !value.startsWith('{')) {
     value = value.split(',').map(s => s.trim()).filter(Boolean);
   } else if (input.type === 'number') {
     value = Number(value);
   }
-  btn.disabled = true;
+  btnLoad(btn, true, '…');
   try {
     await api('PUT', '/settings', { updates: [{ key, value }] });
-    flash(`Setting "${key}" saved`);
+    flash(`Setting saved`);
   } catch(err) {
     flash(err.message || 'Failed to save setting', 'error');
   } finally {
-    btn.disabled = false;
+    btnLoad(btn, false);
   }
 };
 
@@ -1467,22 +1522,18 @@ function renderReferrerView() {
       notes:  company ? `[${company}] ${notes}` : notes,
     };
     const btn = document.getElementById('refLeadSubmit');
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
+    btnLoad(btn, true, 'Capturing…');
     try {
       await api('POST', '/leads', payload);
-      /* Reset form */
       document.getElementById('referrerLeadForm').reset();
       flash('Lead captured!');
-      /* Update today's count */
       S._refCount = (S._refCount || 0) + 1;
       const countEl = document.getElementById('refTodayCount');
       if (countEl) countEl.innerHTML = `<span class="ref-count-badge">${S._refCount} lead${S._refCount > 1 ? 's' : ''} captured today ✓</span>`;
     } catch (err) {
       flash(err.message || 'Failed to save lead', 'error');
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Capture Lead →';
+      btnLoad(btn, false);
     }
   });
 }
@@ -1503,7 +1554,7 @@ window.openReferrerModal = async function(expoId, expoName) {
 async function loadReferrerList(expoId) {
   const list = document.getElementById('referrerList');
   if (!list) return;
-  list.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-3);padding:12px 0">Loading…</div>`;
+  list.innerHTML = contentSpinner('Loading referrers…');
   try {
     const res = await api('GET', `/expos/${expoId}/referrers`);
     const referrers = res.data || [];
@@ -1533,7 +1584,7 @@ document.getElementById('createReferrerBtn')?.addEventListener('click', async ()
   const pass = document.getElementById('refPassword').value.trim();
   if (!name || !pass) { flash('Name and password are required', 'error'); return; }
   const btn = document.getElementById('createReferrerBtn');
-  btn.disabled = true;
+  btnLoad(btn, true, 'Creating…');
   try {
     const res = await api('POST', `/expos/${_currentReferrerExpoId}/referrers`, { name, password: pass });
     const creds = res.data;
@@ -1547,7 +1598,7 @@ document.getElementById('createReferrerBtn')?.addEventListener('click', async ()
   } catch (err) {
     flash(err.message || 'Failed to create referrer', 'error');
   } finally {
-    btn.disabled = false;
+    btnLoad(btn, false);
   }
 });
 
@@ -1560,12 +1611,15 @@ document.getElementById('copyPassBtn')?.addEventListener('click', () => {
 
 window.deleteReferrer = async function(expoId, uid) {
   if (!confirm('Delete this referrer account permanently?')) return;
+  showRefresh();
   try {
     await api('DELETE', `/expos/${expoId}/referrers/${uid}`);
     await loadReferrerList(expoId);
     flash('Referrer deleted', 'warn');
   } catch (err) {
     flash(err.message || 'Delete failed', 'error');
+  } finally {
+    hideRefresh();
   }
 };
 
@@ -1584,24 +1638,30 @@ window.hardDeleteAgent = function(agentId, agentName) {
   okBtn.parentNode.replaceChild(newOk, okBtn);
 
   newOk.addEventListener('click', async () => {
-    newOk.disabled = true;
+    btnLoad(newOk, true, 'Deleting…');
     try {
       await api('DELETE', `/agents/${agentId}/hard`);
-      await loadAllData();
+      await loadAllData(true);
       updateNavCounts();
       modal.classList.remove('open');
       renderAgentsGrid();
       flash(`Agent "${agentName}" permanently deleted`, 'warn');
     } catch (err) {
       flash(err.message || 'Delete failed', 'error');
-      newOk.disabled = false;
+      btnLoad(newOk, false);
     }
   });
 };
 
 /* ═══════════ CAMERA / OCR ═══════════ */
 async function processCardImage(file, fieldMap) {
-  flash('Scanning card… this may take a moment');
+  /* Disable whichever scan button triggered this */
+  const scanBtns = [
+    document.getElementById('cameraScanBtn'),
+    document.getElementById('refCameraBtn'),
+  ];
+  scanBtns.forEach(b => btnLoad(b, true, '🔍 Scanning…'));
+  showRefresh();
   try {
     const result = await Tesseract.recognize(file, 'eng', { logger: () => {} });
     const text = result.data.text;
@@ -1625,6 +1685,9 @@ async function processCardImage(file, fieldMap) {
     flash('Card scanned — review and confirm the details');
   } catch (err) {
     flash('Could not read card — please fill in manually', 'error');
+  } finally {
+    scanBtns.forEach(b => btnLoad(b, false));
+    hideRefresh();
   }
 }
 
