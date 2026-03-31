@@ -1661,9 +1661,15 @@ async function processCardImage(file, fieldMap) {
     document.getElementById('refCameraBtn'),
   ];
   scanBtns.forEach(b => btnLoad(b, true, '🔍 Scanning…'));
-  showRefresh();
   try {
-    const result = await Tesseract.recognize(file, 'eng', { logger: () => {} });
+    const result = await Tesseract.recognize(file, 'eng', {
+      logger: m => {
+        if (m.status === 'loading tesseract core')            showLoader('Loading OCR engine…');
+        else if (m.status === 'loading language traineddata') showLoader('Downloading language data…');
+        else if (m.status === 'initializing api')             showLoader('Initialising OCR…');
+        else if (m.status === 'recognizing text')             showLoader('Recognising… ' + Math.round((m.progress || 0) * 100) + '%');
+      },
+    });
     const text = result.data.text;
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -1686,8 +1692,8 @@ async function processCardImage(file, fieldMap) {
   } catch (err) {
     flash('Could not read card — please fill in manually', 'error');
   } finally {
+    hideLoader();
     scanBtns.forEach(b => btnLoad(b, false));
-    hideRefresh();
   }
 }
 
