@@ -1674,19 +1674,26 @@ async function processCardImage(file, fieldMap) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
     /* Extract fields with regex */
-    const phoneMatch = text.match(/(?:\+91[-\s]?)?[6-9]\d{9}/);
+    /* Phone: match 10-digit Indian mobile with optional +91 prefix and spaces/dashes */
+    const phoneRaw = text.match(/(?:\+91[-\s]?)?[6-9][\d](?:[\s\-]?\d){8,9}/);
+    const phone    = phoneRaw ? phoneRaw[0].replace(/[\s\-]/g, '') : null;
     const emailMatch = text.match(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i);
 
-    /* Name: first non-empty line that isn't phone/email/URL */
-    const nameLine = lines.find(l => l.length > 2 && l.length < 50 && !l.match(/[@\d\/\\]/) && !l.toLowerCase().includes('www'));
-    /* Company: line with Ltd/Pvt/Inc/Corp or second substantial line */
+    /* Name: first non-empty, non-company line without email/URL chars */
     const companyLine = lines.find(l => /ltd|pvt|inc|corp|llp|solutions|technologies|services|group/i.test(l));
+    const nameLine = lines.find(l =>
+      l.length > 2 && l.length < 50 &&
+      !l.match(/[@\/\\]/) &&
+      !l.toLowerCase().includes('www') &&
+      !/^\+?[\d\s\-()]+$/.test(l) &&          // skip pure phone lines
+      l !== companyLine
+    );
 
-    if (fieldMap.name && nameLine)              document.getElementById(fieldMap.name).value  = nameLine;
-    if (fieldMap.phone && phoneMatch)           document.getElementById(fieldMap.phone).value = phoneMatch[0];
-    if (fieldMap.email && emailMatch)           document.getElementById(fieldMap.email).value = emailMatch[0];
-    if (fieldMap.company && companyLine)        document.getElementById(fieldMap.company).value = companyLine;
-    if (fieldMap.notes && !fieldMap.company)    document.getElementById(fieldMap.notes).value  = text.substring(0, 200);
+    if (fieldMap.name && nameLine)           document.getElementById(fieldMap.name).value    = nameLine;
+    if (fieldMap.phone && phone)             document.getElementById(fieldMap.phone).value   = phone;
+    if (fieldMap.email && emailMatch)        document.getElementById(fieldMap.email).value   = emailMatch[0];
+    if (fieldMap.company && companyLine)     document.getElementById(fieldMap.company).value = companyLine;
+    if (fieldMap.notes && !fieldMap.company) document.getElementById(fieldMap.notes).value   = text.substring(0, 200);
 
     flash('Card scanned — review and confirm the details');
   } catch (err) {
