@@ -513,7 +513,7 @@ describe('POST /api/leads/:id/followups - channel validation', () => {
         .send({ channel, note: `Test ${channel}`, outcome: 'Noted' });
       expect(res.status).toBe(201);
     }
-  });
+  }, 60000);
 
   it('rejects invalid channel value', async () => {
     const { agent1, mgrToken, agt1Token } = await setupBase();

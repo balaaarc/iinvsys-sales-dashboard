@@ -1317,13 +1317,13 @@ document.getElementById('confirmImportBtn')?.addEventListener('click', async () 
   const btn = document.getElementById('confirmImportBtn');
   btnLoad(btn, true, 'Importing…');
   try {
-    const res = await api('POST', '/leads/bulk-import', { leads });
+    const res = await api('POST', '/leads/bulk', { leads });
     await loadAllData(true);
     updateNavCounts();
     renderKanban(getFilters());
     if (document.getElementById('page-overview').classList.contains('active')) renderKPIs();
-    const imported = res.data?.imported ?? toImport.length;
-    const skipped  = res.data?.skipped  ?? S.csvParsed.filter(r=>r._dup).length;
+    const imported = res.data?.imported   ?? toImport.length;
+    const skipped  = res.data?.duplicates ?? S.csvParsed.filter(r=>r._dup).length;
     document.getElementById('importResults').innerHTML = `
       <div class="import-result-icon">✅</div>
       <div class="import-result-title">${imported} Leads Imported</div>
@@ -1448,7 +1448,7 @@ async function renderSettings() {
   wrap.innerHTML = contentSpinner('Loading settings…');
   try {
     const res = await api('GET', '/settings');
-    const settings = res.data || [];
+    const settings = (res.data && res.data.settings) ? res.data.settings : [];
 
     const groups = {};
     settings.forEach(s => {
@@ -1506,7 +1506,7 @@ window.saveSetting = async function(key, btn) {
   }
   btnLoad(btn, true, '…');
   try {
-    await api('PUT', '/settings', { updates: [{ key, value }] });
+    await api('PUT', '/settings', { updates: { [key]: value } });
     flash(`Setting saved`);
   } catch(err) {
     flash(err.message || 'Failed to save setting', 'error');
